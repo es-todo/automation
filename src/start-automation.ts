@@ -1,9 +1,10 @@
 import { Resend } from "resend";
 import { fetch, no_action, type action, type final_action } from "./actions.ts";
 import { get_object } from "./get-object.ts";
-import { issue_command } from "./issue-command.ts";
+import { issue_command_and_wait_for_completion } from "./issue-command.ts";
 import { randomUUID } from "node:crypto";
 import { compile as make_converter } from "html-to-text";
+import { fetch_event_t, poll_change_set } from "./object-channel.ts";
 
 const convert = make_converter({
   wordwrap: 80,
@@ -19,10 +20,7 @@ type config = {
 
 type depencencies = Record<string, Record<string, true>>;
 
-export async function start_automation(
-  action_maker: () => action,
-  config: config
-) {
+async function single_run(action_maker: () => action, config: config) {
   const resend = new Resend(config.resend_api_key);
 
   async function do_action(action: final_action) {
@@ -46,12 +44,12 @@ export async function start_automation(
           throw new Error(res.error.name);
         }
         console.log(res);
-        return;
+        return 0;
       }
       case "submit_command": {
         const { command_type, command_data } = action;
         const command_uuid = randomUUID();
-        await issue_command({
+        const outcome = await issue_command_and_wait_for_completion({
           command_uuid,
           command_type,
           command_data,
@@ -63,7 +61,10 @@ export async function start_automation(
             ),
           },
         });
-        return;
+        if (outcome.type !== "succeeded") {
+          throw new Error(`command ${outcome}`);
+        }
+        return outcome.event_t;
       }
       default: {
         throw new Error(`action ${action.type} is not implemented`);
@@ -112,9 +113,26 @@ export async function start_automation(
     console.log(actions);
     throw new Error(`actions failed`);
   }
+  let event_t = 0;
   for (const action of actions) {
-    await do_action(action);
+    const t = await do_action(action);
+    event_t = Math.max(event_t, t);
   }
 
-  console.log({ depencencies, actions });
+  console.log({ actions });
+  return { depencencies, event_t };
+}
+
+export async function start_automation(
+  action_maker: () => action,
+  config: config
+) {
+  let max_event_t = await fetch_event_t();
+  console.log(`init event_t = ${max_event_t}`);
+  while (true) {
+    const { depencencies, event_t } = await single_run(action_maker, config);
+    max_event_t = Math.max(max_event_t + 1, event_t);
+    console.log(`waiting for event_t = ${max_event_t}`);
+    await poll_change_set(max_event_t);
+  }
 }
