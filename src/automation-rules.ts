@@ -26,7 +26,7 @@ export function email_automation(): action {
             body: `<html><body>
               <h1>Welcome!</h1>
               <p>
-              Click <a href="http://localhost/${code}">this link</a>
+              Click <a href="http://localhost/verify-email/${code}">this link</a>
               to verify your account.
               </p>
               <p>
