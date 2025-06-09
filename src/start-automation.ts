@@ -34,6 +34,7 @@ async function single_run(action_maker: () => action, config: config) {
             html: body,
             text: convert(body),
             subject: title,
+            attachments: [],
           },
           {
             idempotencyKey: message_id,
@@ -130,7 +131,10 @@ export async function start_automation(
   let max_event_t = await fetch_event_t();
   console.log(`init event_t = ${max_event_t}`);
   while (true) {
-    const { depencencies, event_t } = await single_run(action_maker, config);
+    const { depencencies: _dependencies, event_t } = await single_run(
+      action_maker,
+      config
+    );
     max_event_t = Math.max(max_event_t + 1, event_t);
     console.log(`waiting for event_t = ${max_event_t}`);
     await poll_change_set(max_event_t);

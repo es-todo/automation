@@ -15,7 +15,11 @@ COPY ./package.json /app
 COPY ./package-lock.json /app
 RUN npm ci
 COPY ./tsconfig.json /app
+COPY ./tsconfig.app.json /app
+COPY ./tsconfig.node.json /app
 COPY ./src /app/src
+COPY vite.config.ts /app
+COPY index.html /app
 RUN npm run check
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh

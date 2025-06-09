@@ -7,7 +7,9 @@ function do_exit() {
 }
 trap do_exit SIGTERM SIGINT SIGHUP
 
-./node_modules/.bin/nodemon --ext ts --watch src --exec 'node ./src/main.ts' &
+npm run preview &
+
+./node_modules/.bin/nodemon --ext ts --watch src --exec 'vite-node ./src/main.ts' &
 
 sleep infinity &
 wait $!

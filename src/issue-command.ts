@@ -59,8 +59,6 @@ type command_message = {
   command_uuid: string;
 };
 
-type command_status_type = command_message["type"];
-
 async function poll_status(status_t: number): Promise<command_message> {
   console.log({ poll: status_t });
   while (true) {
