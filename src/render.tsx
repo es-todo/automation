@@ -14,7 +14,7 @@ function route(data: data) {
   switch (data.type) {
     case "welcome_email":
       return <WelcomeEmail code={data.code} username={data.username} />;
-    case "welcome_email":
+    case "reset_password_email":
       return <ResetPasswordEmail code={data.code} username={data.username} />;
     default:
       throw new Error(`unhandled ${data.type}`);
