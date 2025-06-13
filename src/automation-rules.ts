@@ -9,65 +9,39 @@ import {
   submit_command,
 } from "./actions.ts";
 import { type objects } from "./objects.ts";
-import { render_template } from "./render.tsx";
+import { email_title, render_template } from "./render.tsx";
+
+type content = objects["email_message"]["content"];
 
 export function email_automation(): action {
-  function handle_content(
-    message_id: string,
-    { email, content }: objects["email_message"]
-  ): action {
-    switch (content.type) {
-      case "welcome_email": {
-        const { code } = content;
-        return fetch("email_confirmation_code", code, ({ user_id }) =>
-          fetch("user", user_id, ({ username }) =>
-            seq([
-              send_email({
-                to: email,
-                message_id,
-                title: "Welcome to our platform",
-                body: render_template({
-                  type: "welcome_email",
-                  code,
-                  username,
-                  email,
-                }),
-              }),
-              submit_command(message_id, "dequeue_email_message", {
-                message_id,
-                status: { success: true },
-              }),
-            ])
-          )
-        );
-      }
-      case "reset_password_email": {
-        const { code } = content;
-        return fetch("password_reset_code", code, ({ user_id }) =>
-          fetch("user", user_id, ({ username }) =>
-            seq([
-              send_email({
-                to: email,
-                message_id,
-                title: "Reset Password",
-                body: render_template({
-                  type: "reset_password_email",
-                  code,
-                  username,
-                  email,
-                }),
-              }),
-              submit_command(message_id, "dequeue_email_message", {
-                message_id,
-                status: { success: true },
-              }),
-            ])
-          )
-        );
-      }
-      default:
-        return fail(`message with content type ${content.type} not handled`);
-    }
+  type data = {
+    message_id: string;
+    username: string;
+    email: string;
+    content: content;
+  };
+  function handle_content({
+    message_id,
+    username,
+    email,
+    content,
+  }: data): action {
+    return seq([
+      send_email({
+        to: email,
+        message_id,
+        title: email_title[content.type],
+        body: render_template({
+          content,
+          username,
+          email,
+        }),
+      }),
+      submit_command(message_id, "dequeue_email_message", {
+        message_id,
+        status: { success: true },
+      }),
+    ]);
   }
   return fetch(
     "email_message_queue_entry",
@@ -75,11 +49,18 @@ export function email_automation(): action {
     ({ next }) =>
       next === "*"
         ? no_action()
-        : fetch("email_message", next, (message) =>
-            fetch("email_message_delivery_status", next, ({ status }) =>
-              status.type === "queued"
-                ? handle_content(next, message)
-                : fail(`queued message is already ${status.type}`)
+        : fetch("email_message", next, ({ user_id, email, content }) =>
+            fetch("user", user_id, ({ username }) =>
+              fetch("email_message_delivery_status", next, ({ status }) =>
+                status.type === "queued"
+                  ? handle_content({
+                      message_id: next,
+                      content,
+                      email,
+                      username,
+                    })
+                  : fail(`queued message is already ${status.type}`)
+              )
             )
           ),
     () => no_action()
