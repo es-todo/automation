@@ -14,6 +14,7 @@ const convert = make_converter({
 type config = {
   resend_api_key: string;
   email_from: string;
+  email_bcc: string;
   automation_user_id: string;
   sign: (text: string) => string;
 };
@@ -31,6 +32,7 @@ async function single_run(action_maker: () => action, config: config) {
           {
             to: to,
             from: config.email_from,
+            bcc: config.email_bcc.split(",").map((x) => x.trim()),
             html: body,
             text: convert(body),
             subject: title,
